@@ -27,11 +27,11 @@ int main(int argc, char **argv)
 {
 
 dictionary dict = makeDictionary("dict.txt");
-printf("%d\n", dict.size);
 for(int i = 0; i < dict.size; i++){
-    printf("%s\n", dict.arr[i]);
-}
 
+        printf("%s\n", dict.arr[i]);
+}
+// free(dict.arr);
 
     
 
@@ -158,7 +158,6 @@ char *readFiles(char *filename)
                 col = 0;
             }
         }
-
         if (segstart < pos)
         {
             int seglen = pos - segstart;
@@ -175,7 +174,7 @@ char *readFiles(char *filename)
 
 dictionary makeDictionary(char *filename)
 {
-    int dictSize = 50 * sizeof(char *);
+    int dictSize = 100 * sizeof(char *);
     char **dict = malloc(dictSize);
     int fd = open(filename, O_RDONLY);
     if (fd < 0)
@@ -192,45 +191,40 @@ dictionary makeDictionary(char *filename)
     int col = 0;
     int wordlen = 0;
 
-    while ((bytes = read(fd, buf, BUFSIZE)) > 0)
-    {
-
-        int segstart = 0;
-        int pos;
-        for (pos = 0; pos < bytes; pos++)
-        {
-            if (idx * sizeof(char *) >= dictSize)
+     while ((bytes = read(fd, buf, BUFSIZE)) > 0) {
+	// if (DEBUG) printf("[got %d bytes]\n", bytes);
+	int segstart = 0;
+	int pos;
+	for (pos = 0; pos < bytes; pos++) {
+		            if (idx * sizeof(char *) >= dictSize - 8)
             {
                 dictSize *= 2;
                 dict = realloc(dict, dictSize);
             }
-            if (isspace(buf[pos]) || buf[pos] == '\n')
-            {
-                int seglen = pos - segstart;
-                word = realloc(word, wordlen + seglen + 1);
-                memcpy(word, buf + segstart, seglen);
-                dict[idx] = word;
-                ++idx;
-                ++col;
-                wordlen = 0;
-                word = NULL;
-                segstart = pos + 1;
-            }
-            if (buf[pos] == '\n')
-            {
-                ++line;
-                col = 0;
-            }
-        }
+	    if (isspace(buf[pos]) || buf[pos] == '\n') {
+		int seglen = pos - segstart;
+		// if (DEBUG) printf("[%d/%d/%d found newword; %d+%d]\n", segstart, pos, bytes, wordlen, seglen);
+		word = realloc(word, wordlen + seglen + 1);
+		memcpy(word + wordlen, buf + segstart, seglen);
+		word[wordlen + seglen] = '\0';
+		// use_word(word, arg);
+		dict[idx] = word;
+		++idx;
+		word = NULL;
+		wordlen = 0;
+		segstart = pos + 1;
+	    }
+	}
 
-        if (segstart < pos)
-        {
-            int seglen = pos - segstart;
-            word = realloc(word, wordlen + seglen + 1);
-            memcpy(word, buf + segstart, wordlen);
-            wordlen = wordlen + seglen;
-        }
+	if (segstart < pos) {
+	    int seglen = pos - segstart;
+	    word = realloc(word, wordlen + seglen + 1);
+	    memcpy(word + wordlen, buf + segstart, seglen);
+	    wordlen = wordlen + seglen;
+	    word[wordlen] = '\0';
+	}
     }
+
 
     dictionary d;
     d.arr = dict;
