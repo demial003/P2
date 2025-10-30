@@ -7,7 +7,6 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <limits.h>
-#include <regex.h>
 
 #ifndef BUFSIZE
 #define BUFSIZE 256
@@ -19,11 +18,13 @@ typedef struct
     int size;
 } dictionary;
 
-void listfiles(char *dirname);
+void listfiles(char *dirname, char* suff, dictionary d);
 char *readFiles(char *filename, dictionary d);
 dictionary makeDictionary(char *filename);
 static int compareWords(const void * word1, const void * word2);
-void parseWord(dictionary dict, char* word);
+int parseWord(dictionary dict, char* word);
+
+static int success = 0;
 
 int main(int argc, char **argv)
 {
@@ -39,10 +40,10 @@ int main(int argc, char **argv)
     if(argc == 2){
         d = makeDictionary(argv[1]);
         qsort(d.arr, d.size, sizeof(char*), compareWords);
+        readFiles("", d);
     }
     else if (strcmp(argv[1], "-s") == 0)
     {
-        puts("suffix tag");
         suff = argv[2];
         d = makeDictionary(argv[3]);
         qsort(d.arr, d.size, sizeof(char*), compareWords);
@@ -51,11 +52,11 @@ int main(int argc, char **argv)
             stat(argv[i], &info);
             if (S_ISREG(info.st_mode))
             {
-                printf("%s is a regular file.\n", argv[i]);
+                readFiles(argv[i], d);
             }
             else if (S_ISDIR(info.st_mode))
             {
-                listfiles(argv[i]);
+                listfiles(argv[i], suff, d);
             }
             else
             {
@@ -72,26 +73,28 @@ int main(int argc, char **argv)
             stat(argv[i], &info);
             if (S_ISREG(info.st_mode))
             {
-                printf("%s is a regular file.\n", argv[i]);
+                readFiles(argv[i], d);
             }
             else if (S_ISDIR(info.st_mode))
             {
-                listfiles(argv[i]);
+                listfiles(argv[i], suff, d);
             }
             else
             {
-                printf("%s is neither a regular file nor a directory (e.g., a symbolic link, device file, etc.).\n", argv[i]);
+                printf("%s: Invalid argument\n", argv[i]);
             }
         }
     }
 
-    readFiles("test.txt", d);
-
+    free(d.arr);
+    if(success == 1){
+        exit(EXIT_FAILURE);
+    }
+    exit(EXIT_SUCCESS);
 }
 
-void listfiles(char *dirname)
+void listfiles(char *dirname, char* suff, dictionary d)
 {
-    char *suff = ".txt";
 
     DIR *dir = opendir(dirname);
     if (dir == NULL)
@@ -107,13 +110,19 @@ void listfiles(char *dirname)
         stat(de->d_name, &info);
         if (S_ISDIR(info.st_mode) && strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0)
         {
-            printf("dir: %s\n", dirname);
-            printf("entry: %s\n", de->d_name);
+            int len = strlen(de->d_name);
+            char * s = malloc(8);
+            memcpy(s, de->d_name + len - 4, 4);
+            
             char path[100] = {0};
             strcat(path, dirname);
             strcat(path, "/");
             strcat(path, de->d_name);
-            listfiles(path);
+            if(strcmp(s, suff) == 0) {
+                readFiles(path, d);
+                free(s);
+            }
+            listfiles(path, suff, d);
         }
         de = readdir(dir);
     }
@@ -122,8 +131,13 @@ void listfiles(char *dirname)
 
 char *readFiles(char *filename, dictionary d)
 {
-
-    int fd = open(filename, O_RDONLY);
+    int fd;
+    if(filename == ""){
+        fd = STDIN_FILENO;
+    } else{
+        fd = open(filename, O_RDONLY);
+    }
+     
     if (fd < 0)
     {
         puts("ERORR");
@@ -148,8 +162,10 @@ char *readFiles(char *filename, dictionary d)
                 int seglen = pos - segstart;
                 word = realloc(word, wordlen + seglen + 1);
                 memcpy(word, buf + segstart, seglen);
-                printf("Reading> %s  line: %d  col: %d\n", word, line, col);
-                // parseWord(d, word);
+                if(parseWord(d, word) == 1){
+                    printf("%s:%d:%d %s\n", filename, line, col, word);
+                    success = 1;
+                }
                 ++col;
                 wordlen = 0;
                 word = NULL;
@@ -223,7 +239,6 @@ dictionary makeDictionary(char *filename)
             wordlen = wordlen + seglen;
         }
     }
-
     dictionary d;
     d.arr = dict;
     d.size = idx;
@@ -232,25 +247,60 @@ dictionary makeDictionary(char *filename)
 
 
 static int compareWords(const void * word1, const void * word2){
+    char* ref1 = *(char**)(word1);
+    char* ref2 = *(char**)(word2);
+    int len1 = strlen(ref1);
+    int len2 = strlen(ref2);
+    int res = 0;
+    if(len1 != len2) return 1;
+
+    for(int i = 0; i < len1; i ++){
+        if(islower(ref2[i]) && ref2[i] != tolower(ref1[i])){
+            res = 1;
+        }
+        if(isupper(ref2[i]) && (ref2[i] != ref1[i])){
+            res = 1;
+        }
+    }
+
+
+
+    return res;
+    
+
+
+
     return strcmp(*(char**)(word1), *(char**)word2);
 }
 
-void parseWord(dictionary dict, char* word){    
+int parseWord(dictionary dict, char* word){    
     int value;
     int len = strlen(word);
     char * s;
-    for(s = word; *s; ++s){
+    char* ref = malloc(sizeof(word));
+    strncpy(ref, word, len);
+    
+
+
+
+    for(int i = 0; i < len; i++){
+        if(ref[i] != '(' && ref[i] != '{' && ref[i] != '[' && ref[i] != '\"' && ref[i] != '\''){
+            ref = ref + i;
+            break;
+        }
+    }
+    for(s = ref; *s; ++s){
         if(isalpha(*s)){
             break;
         }
         else {
-            return;
+            return 2;
         }
     }
 
     for(int i = len - 1; i >= 0; i--){
-        if(isalnum(word[i])){
-            word[i + 1] = '\0';
+        if(isalnum(ref[i])){
+            ref[i + 1] = '\0';
             break;
         }
         else{
@@ -258,14 +308,14 @@ void parseWord(dictionary dict, char* word){
         }
     }
 
-    char* ref = word;
+    
     char** res = (char**) bsearch(&ref, dict.arr, dict.size, sizeof(char *), compareWords);
-
-
+    
     if(res){
-        puts("match");
+        return 0;
     }
     
+    return 1;
 }
 
 
