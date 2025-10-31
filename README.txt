@@ -9,5 +9,8 @@ Our tests consists of two important tests, the first being a song by Don Mclean 
 Vincent where we have deliberately placed words that would cause issues. 
 Those issues are with capitalization, words that contain digits but are not in the dictonary, 
 words inside of special characters, and strings of letters with special characters inside of them.
+The second test is a 10k word stress test with 1 error.
 
-test command : ./spell -s .bar testing/dict.txt testing/files/ 
+test commands : 
+./spell -s .bar testing/dict.txt testing/files/ 
+./spell testing/word testing/files/file.txt 

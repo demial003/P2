@@ -90,7 +90,7 @@ int main(int argc, char **argv)
     }
 
     for(int i = 0; i < d.size; i++){
-        // puts(d.arr[i]);
+        free(d.arr[i]);
     }
     free(d.arr);
 
@@ -156,7 +156,7 @@ char *readFiles(char *filename, dictionary d)
     }
     char buf[BUFSIZE];
     char *word = NULL;
-    buf[BUFSIZE] = ' ';
+    // buf[BUFSIZE] = ' ';
     int bytes;
     int line = 1;
     int col = 1;
@@ -173,6 +173,7 @@ char *readFiles(char *filename, dictionary d)
                 int seglen = pos - segstart;
                 word = realloc(word, wordlen + seglen + 1);
                 memcpy(word + wordlen, buf + segstart, seglen);
+                word[wordlen + seglen] = '\0';
                 if (parseWord(d, word) == 1)
                 {
                     printf("%s:%d:%d %s\n", filename, line, col, word);
@@ -194,6 +195,7 @@ char *readFiles(char *filename, dictionary d)
             int seglen = pos - segstart;
             word = realloc(word, wordlen + seglen + 1);
             memcpy(word + wordlen, buf + segstart, seglen);
+            word[wordlen + seglen] = '\0';
             wordlen = wordlen + seglen;
         }
     }
@@ -211,7 +213,7 @@ dictionary makeDictionary(char *filename)
     }
     char buf[BUFSIZE];
     char *word = NULL;
-    buf[BUFSIZE] = ' ';
+    buf[BUFSIZE - 1] = ' ';
     int idx = 0;
     int bytes;
     int line = 0;
@@ -234,6 +236,7 @@ dictionary makeDictionary(char *filename)
                 int seglen = pos - segstart;
                 word = realloc(word, wordlen + seglen + 1);
                 memcpy(word + wordlen, buf + segstart, seglen);
+                word[wordlen + seglen] = '\0';
                 dict[idx] = word;
                 ++idx;
                 ++col;
@@ -248,6 +251,7 @@ dictionary makeDictionary(char *filename)
             int seglen = pos - segstart;
             word = realloc(word, wordlen + seglen + 1);
             memcpy(word + wordlen, buf + segstart, seglen);
+            word[wordlen + seglen] = '\0';
             wordlen = wordlen + seglen;
         }
     }
@@ -279,7 +283,6 @@ static int checkWords(const void *word1, const void *word2)
     else{
         return strcasecmp(ref1, ref2);
     }
-
     
 }
 
@@ -288,14 +291,14 @@ int parseWord(dictionary dict, char *word)
     int value;
     int len = strlen(word);
     char *s;
-    char *ref = malloc(sizeof(word) * 10);
+    char *ref = malloc(len + 1);
     strncpy(ref, word, len);
 
     for (int i = 0; i < len; i++)
     {
         if (ref[i] != '(' && ref[i] != '{' && ref[i] != '[' && ref[i] != '\"' && ref[i] != '\'' && isalnum(ref[i]))
         {
-            ref = ref + i;
+            ref = memmove(ref, ref + i, len - i + 1);
             break;
         }
     }
@@ -331,7 +334,9 @@ int parseWord(dictionary dict, char *word)
         }
     }
 
-    char **res = (char **)bsearch(&ref, dict.arr, dict.size, sizeof(char *), checkWords);
+    char* key = ref;
+
+    char **res = (char **)bsearch(&key, dict.arr, dict.size, sizeof(char *), checkWords);
 
     // free(ref);
     int outp = 1;
