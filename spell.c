@@ -18,11 +18,12 @@ typedef struct
     int size;
 } dictionary;
 
-void listfiles(char *dirname, char* suff, dictionary d);
+void listfiles(char *dirname, char *suff, dictionary d);
 char *readFiles(char *filename, dictionary d);
 dictionary makeDictionary(char *filename);
-static int compareWords(const void * word1, const void * word2);
-int parseWord(dictionary dict, char* word);
+static int compareWords(const void *word1, const void *word2);
+int parseWord(dictionary dict, char *word);
+static int checkWords(const void *word1, const void *word2);
 
 static int success = 0;
 
@@ -32,21 +33,23 @@ int main(int argc, char **argv)
     struct stat info;
     dictionary d;
 
-    if(argc < 2){
+    if (argc < 2)
+    {
         printf("Please use proper arguments\n");
         exit(EXIT_FAILURE);
     }
 
-    if(argc == 2){
+    if (argc == 2)
+    {
         d = makeDictionary(argv[1]);
-        qsort(d.arr, d.size, sizeof(char*), compareWords);
+        qsort(d.arr, d.size, sizeof(char *), compareWords);
         readFiles("", d);
     }
     else if (strcmp(argv[1], "-s") == 0)
     {
         suff = argv[2];
         d = makeDictionary(argv[3]);
-        qsort(d.arr, d.size, sizeof(char*), compareWords);
+        qsort(d.arr, d.size, sizeof(char *), compareWords);
         for (int i = 4; i < argc; i++)
         {
             stat(argv[i], &info);
@@ -69,7 +72,7 @@ int main(int argc, char **argv)
         for (int i = 2; i < argc; i++)
         {
             d = makeDictionary(argv[1]);
-            qsort(d.arr, d.size, sizeof(char*), compareWords);
+            qsort(d.arr, d.size, sizeof(char *), compareWords);
             stat(argv[i], &info);
             if (S_ISREG(info.st_mode))
             {
@@ -86,16 +89,20 @@ int main(int argc, char **argv)
         }
     }
 
+    for(int i = 0; i < d.size; i++){
+        // puts(d.arr[i]);
+    }
     free(d.arr);
-    if(success == 1){
+
+    if (success == 1)
+    {
         exit(EXIT_FAILURE);
     }
     exit(EXIT_SUCCESS);
 }
 
-void listfiles(char *dirname, char* suff, dictionary d)
+void listfiles(char *dirname, char *suff, dictionary d)
 {
-
     DIR *dir = opendir(dirname);
     if (dir == NULL)
         return;
@@ -111,14 +118,15 @@ void listfiles(char *dirname, char* suff, dictionary d)
         if (S_ISDIR(info.st_mode) && strcmp(de->d_name, ".") != 0 && strcmp(de->d_name, "..") != 0)
         {
             int len = strlen(de->d_name);
-            char * s = malloc(8);
+            char *s = malloc(8);
             memcpy(s, de->d_name + len - 4, 4);
-            
+
             char path[100] = {0};
             strcat(path, dirname);
             strcat(path, "/");
             strcat(path, de->d_name);
-            if(strcmp(s, suff) == 0) {
+            if (strcmp(s, suff) == 0)
+            {
                 readFiles(path, d);
                 free(s);
             }
@@ -132,12 +140,15 @@ void listfiles(char *dirname, char* suff, dictionary d)
 char *readFiles(char *filename, dictionary d)
 {
     int fd;
-    if(filename == ""){
+    if (filename == "")
+    {
         fd = STDIN_FILENO;
-    } else{
+    }
+    else
+    {
         fd = open(filename, O_RDONLY);
     }
-     
+
     if (fd < 0)
     {
         puts("ERORR");
@@ -161,8 +172,9 @@ char *readFiles(char *filename, dictionary d)
             {
                 int seglen = pos - segstart;
                 word = realloc(word, wordlen + seglen + 1);
-                memcpy(word, buf + segstart, seglen);
-                if(parseWord(d, word) == 1){
+                memcpy(word + wordlen, buf + segstart, seglen);
+                if (parseWord(d, word) == 1)
+                {
                     printf("%s:%d:%d %s\n", filename, line, col, word);
                     success = 1;
                 }
@@ -245,83 +257,89 @@ dictionary makeDictionary(char *filename)
     return d;
 }
 
-
-static int compareWords(const void * word1, const void * word2){
-    char* ref1 = *(char**)(word1);
-    char* ref2 = *(char**)(word2);
-    int len1 = strlen(ref1);
-    int len2 = strlen(ref2);
-    int res = 0;
-    if(len1 != len2) return 1;
-
-    for(int i = 0; i < len1; i ++){
-        if(islower(ref2[i]) && ref2[i] != tolower(ref1[i])){
-            res = 1;
-        }
-        if(isupper(ref2[i]) && (ref2[i] != ref1[i])){
-            res = 1;
-        }
-    }
-
-
-
-    return res;
-    
-
-
-
-    return strcmp(*(char**)(word1), *(char**)word2);
+static int compareWords(const void *word1, const void *word2)
+{
+    return strcasecmp(*(char**)(word1), *(char**)(word2));
 }
 
-int parseWord(dictionary dict, char* word){    
+static int checkWords(const void *word1, const void *word2)
+{
+    char *ref1 = *(char **)(word1);
+    char *ref2 = *(char **)(word2);
+
+    if (islower(ref2[0]) || (isupper(ref2[0]) && isupper(ref1[0])))
+    {
+        if(strcmp(ref1, "and") == 0){
+        }
+        return strcasecmp(ref1, ref2);      
+    }
+    else if(strcasecmp(ref1,ref2) == 0){
+        return strcmp(ref1, ref2);
+    }
+    else{
+        return strcasecmp(ref1, ref2);
+    }
+
+    
+}
+
+int parseWord(dictionary dict, char *word)
+{
     int value;
     int len = strlen(word);
-    char * s;
-    char* ref = malloc(sizeof(word));
+    char *s;
+    char *ref = malloc(sizeof(word) * 10);
     strncpy(ref, word, len);
-    
 
-
-
-    for(int i = 0; i < len; i++){
-        if(ref[i] != '(' && ref[i] != '{' && ref[i] != '[' && ref[i] != '\"' && ref[i] != '\''){
+    for (int i = 0; i < len; i++)
+    {
+        if (ref[i] != '(' && ref[i] != '{' && ref[i] != '[' && ref[i] != '\"' && ref[i] != '\'' && isalnum(ref[i]))
+        {
             ref = ref + i;
             break;
         }
     }
-    for(s = ref; *s; ++s){
-        if(isalpha(*s)){
-            break;
+    int flag = 0;
+    for (s = ref; *s; ++s)
+    {
+        if(isdigit(*s)){
+            flag = 2;
         }
-        else {
-            return 2;
-        }
-    }
-
-    for(int i = len - 1; i >= 0; i--){
-        if(isalnum(ref[i])){
-            ref[i + 1] = '\0';
+        else if(isalpha(*s)){
+            flag = 0;
             break;
         }
         else{
-
+            flag = 1;
         }
     }
 
-    
-    char** res = (char**) bsearch(&ref, dict.arr, dict.size, sizeof(char *), compareWords);
-    
-    if(res){
-        return 0;
+    if(flag != 0) return 2;
+
+ 
+    int offset = 0;
+    for (int i = len - 1; i >= 0; i--)
+    {
+        if (isalnum(ref[i]))
+        {
+            ref[i + 1] = '\0';
+            offset = i;
+            break;
+        }
+        else
+        {
+        }
     }
+
+    char **res = (char **)bsearch(&ref, dict.arr, dict.size, sizeof(char *), checkWords);
+
+    // free(ref);
+    int outp = 1;
+    if (res)
+    {
+        outp =  0;
+    }
+    return outp;
     
-    return 1;
 }
 
-
-/*
-TODO:
-Capitalization
-Erros
-Testing
-*/
